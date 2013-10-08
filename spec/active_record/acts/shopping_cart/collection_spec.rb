@@ -1,5 +1,4 @@
 require File.expand_path(File.dirname(__FILE__) + '../../../../spec_helper')
-# require 'spec_helper'
 
 describe ActiveRecord::Acts::ShoppingCart::Collection do
   let(:klass) do
@@ -21,9 +20,7 @@ describe ActiveRecord::Acts::ShoppingCart::Collection do
 
   describe :add do
     context "item is not on cart" do
-      before do
-        subject.stub(:item_for).with(object)
-      end
+      before { subject.stub(:item_for).with(object, {}) }
 
       it "creates a new shopping cart item" do
         created_object = mock
@@ -37,18 +34,18 @@ describe ActiveRecord::Acts::ShoppingCart::Collection do
 
     context "item is not in cart" do
       before do
-        subject.stub(:item_for).with(object)
+        subject.stub(:item_for).with(object, {})
       end
 
       it "creates a new shopping cart item non-cumulatively" do
         subject.shopping_cart_items.should_receive(:create).with(:item => object, :price => 19.99, :quantity => 3)
-        subject.add(object, 19.99, 3, false)
+        subject.add(object, 19.99, 3, comulative: false)
       end
     end
 
     context "item is already on cart" do
       before do
-        subject.stub(:item_for).with(object).and_return(shopping_cart_item)
+        subject.stub(:item_for).with(object, {}).and_return(shopping_cart_item)
       end
 
       it "updates the quantity for the item" do
@@ -60,12 +57,25 @@ describe ActiveRecord::Acts::ShoppingCart::Collection do
 
     context "item is already in cart" do
       before do
-        subject.stub(:item_for).with(object).and_return(shopping_cart_item)
+        subject.stub(:item_for).with(object, {}).and_return(shopping_cart_item)
       end
 
       it "updates the quantity for the item non-cumulatively" do
         shopping_cart_item.should_receive(:quantity=).with(3) # not 5
-        subject.add(object, 19.99, 3, false)
+        subject.add(object, 19.99, 3, cumulative: false)
+      end
+    end
+
+    context 'when add with attributes' do
+      before { subject.stub(:item_for).with(object, size: "M") }
+
+      it "creates a new item with size field value" do
+        created_object = mock
+        subject.shopping_cart_items.should_receive(:create).
+            with(:item => object, :price => 19.99, :quantity => 3, :size => "M").
+            and_return(created_object)
+        item = subject.add(object, 19.99, 3, attributes: {size: "M"})
+        item.should be created_object
       end
     end
   end
